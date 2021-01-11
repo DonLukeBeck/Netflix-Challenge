@@ -38,9 +38,14 @@ predictions_description = pd.read_csv(predictions_file, delimiter=';', names=['u
 
 def predict_collaborative_filtering(movies, users, ratings, predictions):
     # TO COMPLETE
-
+    utilityMatrix = np.zeros((users.shape[0]+1, movies.shape[0]+1))
+    #print(ratings.shape)
+    #print(ratingsMatrix.shape)
+    for row in ratings[['userID', 'movieID', 'rating']].to_numpy():
+        utilityMatrix[row[0]][row[1]] = row[2]
+        
+    #np.set_printoptions(threshold=np.inf)
     pass
-
 
 #####
 ##
@@ -76,7 +81,7 @@ def predict_final(movies, users, ratings, predictions):
 #By default, predicted rate is a random classifier
 def predict_random(movies, users, ratings, predictions):
     number_predictions = len(predictions)
-
+    predict_collaborative_filtering(movies, users, ratings, predictions)
     return [[idx, randint(1, 5)] for idx in range(1, number_predictions + 1)]
 
 #####
