@@ -47,8 +47,7 @@ def predict_collaborative_filtering(movies, users, ratings, predictions):
     for row in ratings[['userID', 'movieID', 'rating']].to_numpy():
         utilityMatrix[row[1]][row[0]] = row[2]
 
-    i=0
-    np.set_printoptions(threshold=np.inf)
+    k=0
     print(utilityMatrix.shape)
     for row in utilityMatrix:
         s=0
@@ -56,10 +55,46 @@ def predict_collaborative_filtering(movies, users, ratings, predictions):
         for rating in row:
             s+=rating
             if rating > 0: length+=1
-        if length > 0: movieMeanVector[i]=s/length
-        i+=1
-    print(movieMeanVector)
-    pass
+        if length > 0: movieMeanVector[k]=s/length
+        k+=1
+    for i in range(0, len(utilityMatrix)):
+        row = utilityMatrix[i]
+        if (np.sum(row) == 0): continue
+        pearsonCor = []
+        for j in range(i+1, len(utilityMatrix)):
+            row2 = utilityMatrix[j]
+            pearson = 0
+            if row2.sum() != 0:
+                xNormalized = row - np.mean(row, axis=0)
+                yNormalized = row2 - np.mean(row2, axis=0)
+                result = np.dot(xNormalized, yNormalized) \
+                         / np.sqrt(np.outer(np.sum(xNormalized**2, axis=0), np.sum(yNormalized**2, axis=0)))
+                if (result[0][0] > 1): pearson = 1
+                elif (result[0][0] < -1): pearson = -1
+                else: pearson = result[0][0]
+            pearsonCor.append([pearson, j])
+        maxx1= [-1, 0]; maxx2=[-1, 0]
+        for cor in pearsonCor:
+            if maxx1 > maxx2:
+                temp = maxx1
+                maxx1 = maxx2
+                maxx2 = temp
+            if cor[0] > maxx1[0]:
+                maxx1[0] = cor[0]
+                maxx1[1] = cor[1]
+            elif cor[0] > maxx2[0]:
+                maxx2[0] = cor[0]
+                maxx2[1] = cor[1]
+        #print(maxx1)
+        #print(maxx2)
+        for entry in range(0, len(row)):
+            if row[entry] == 0:
+                weightSum = maxx1[0] + maxx2[0]
+                weightedAverage = (maxx1[0] * utilityMatrix[maxx1[1]][entry]
+                + maxx2[0] * utilityMatrix[maxx2[1]][entry]) / weightSum
+                if weightSum == 0: utilityMatrix[i][entry] = 0
+                else: utilityMatrix[i][entry] = weightedAverage
+    return utilityMatrix
 
 #####
 ##
@@ -81,9 +116,7 @@ def predict_latent_factors(movies, users, ratings, predictions):
 
 def predict_final(movies, users, ratings, predictions):
   ## TO COMPLETE
-
-  pass
-
+    return predict_collaborative_filtering(movies, users, ratings, predictions)
 
 #####
 ##
@@ -105,7 +138,7 @@ def predict_random(movies, users, ratings, predictions):
 #####    
 
 ## //!!\\ TO CHANGE by your prediction function
-predictions = predict_random(movies_description, users_description, ratings_description, predictions_description)
+predictions = predict_final(movies_description, users_description, ratings_description, predictions_description)
 
 #Save predictions, should be in the form 'list of tuples' or 'list of lists'
 with open(submission_file, 'w') as submission_writer:
