@@ -38,13 +38,27 @@ predictions_description = pd.read_csv(predictions_file, delimiter=';', names=['u
 
 def predict_collaborative_filtering(movies, users, ratings, predictions):
     # TO COMPLETE
-    utilityMatrix = np.zeros((users.shape[0]+1, movies.shape[0]+1))
+    utilityMatrix = np.zeros((movies.shape[0]+1, users.shape[0]+1))
     #print(ratings.shape)
     #print(ratingsMatrix.shape)
+    movieMeanVector = np.zeros(movies['movieID'].shape[0]+1)
+    #for movie in movies['movieID']:
+
     for row in ratings[['userID', 'movieID', 'rating']].to_numpy():
-        utilityMatrix[row[0]][row[1]] = row[2]
-        
-    #np.set_printoptions(threshold=np.inf)
+        utilityMatrix[row[1]][row[0]] = row[2]
+
+    i=0
+    np.set_printoptions(threshold=np.inf)
+    print(utilityMatrix.shape)
+    for row in utilityMatrix:
+        s=0
+        length=0
+        for rating in row:
+            s+=rating
+            if rating > 0: length+=1
+        if length > 0: movieMeanVector[i]=s/length
+        i+=1
+    print(movieMeanVector)
     pass
 
 #####
