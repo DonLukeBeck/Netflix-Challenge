@@ -69,8 +69,8 @@ def predict_collaborative_filtering(movies, users, ratings, predictions):
                 elif (result[0][0] < -1): pearson = -1
                 else: pearson = result[0][0]
             pearsonCor.append([pearson, j])
-        maxx1= [-1, 0]
-        maxx2=[-1, 0]
+        maxx1 = [-1, 0]
+        maxx2 = [-1, 0]
         for cor in pearsonCor:
             if maxx1 > maxx2:
                 temp = maxx1
@@ -89,7 +89,12 @@ def predict_collaborative_filtering(movies, users, ratings, predictions):
                 + maxx2[0] * utilityMatrix[maxx2[1]][entry]) / weightSum
                 if weightSum == 0: utilityMatrix[i][entry] = 0
                 else: utilityMatrix[i][entry] = weightedAverage
-    return utilityMatrix
+    finalPredictions = []
+    i = 1
+    for row in predictions[['userID', 'movieID']].to_numpy():
+        finalPredictions.append([i, utilityMatrix[row[1]][row[0]]])
+        i += 1
+    return finalPredictions
 
 #####
 ##
