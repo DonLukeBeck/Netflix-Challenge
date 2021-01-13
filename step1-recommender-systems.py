@@ -36,6 +36,53 @@ predictions_description = pd.read_csv(predictions_file, delimiter=';', names=['u
 ##
 #####
 
+
+def np_pearson_cor(x, y):
+    if x.sum() == 0 or y.sum() == 0: return 0
+    #xv = x - x.mean(axis=0)
+    #yv = y - y.mean(axis=0)
+    #return 0
+    xv = np.copy(x)
+    yv = np.copy(y)
+    xv[xv==0]=np.nan
+    xv[xv!=np.nan]=xv-np.nanmean(xv, axis=0)
+    xv[xv==np.nan]=0
+    xmean = 0
+    ymean = 0
+    length = 0
+    for val in x:
+        if val != 0:
+            xmean += val
+            length += 1
+    if length > 0:
+        xmean = xmean / length
+    else:
+        xmean = 0
+    length = 0
+    for val in y:
+        if val != 0:
+            ymean += val
+            length += 1
+    if length > 0:
+        ymean = ymean / length
+    else:
+        ymean = 0
+    for i in range(0, xv.shape[0]):
+        if xv[i] != 0:
+            xv[i] = xv[i] - xmean
+    for i in range(0, yv.shape[0]):
+        if yv[i] != 0:
+            yv[i] = yv[i] - ymean
+    xvss = (xv * xv).sum(axis=0)
+    yvss = (yv * yv).sum(axis=0)
+    if np.outer(xvss, yvss) != 0:
+        result = np.matmul(xv.transpose(), yv) / np.sqrt(np.outer(xvss, yvss))
+    else:
+        return 0
+    # bound the values to -1 to 1 in the event of precision issues
+    return np.minimum(np.abs(result[0][0]), 1.0)
+
+
 def predict_collaborative_filtering(movies, users, ratings, predictions):
 
     utilityMatrix = np.zeros((movies.shape[0]+1, users.shape[0]+1))
@@ -45,6 +92,7 @@ def predict_collaborative_filtering(movies, users, ratings, predictions):
         utilityMatrix[row[1]][row[0]] = row[2]
 
     k = 0
+    """
     for row in utilityMatrix:
         s = 0
         length = 0
@@ -53,6 +101,7 @@ def predict_collaborative_filtering(movies, users, ratings, predictions):
             if rating > 0: length+=1
         if length > 0: movieMeanVector[k]=s/length
         k+=1
+    """
     for i in range(0, len(utilityMatrix)):
         row = utilityMatrix[i]
         if (np.sum(row) == 0): continue
@@ -60,6 +109,7 @@ def predict_collaborative_filtering(movies, users, ratings, predictions):
         for j in range(i+1, len(utilityMatrix)):
             row2 = utilityMatrix[j]
             pearson = 0
+            """
             if row2.sum() != 0:
                 xNormalized = row - np.mean(row, axis=0)
                 yNormalized = row2 - np.mean(row2, axis=0)
@@ -68,7 +118,9 @@ def predict_collaborative_filtering(movies, users, ratings, predictions):
                 if (result[0][0] > 1): pearson = 1
                 elif (result[0][0] < -1): pearson = -1
                 else: pearson = result[0][0]
-            pearsonCor.append([pearson, j])
+            """
+            #pearsonCor.append([pearson, j])
+            pearsonCor.append([np_pearson_cor(row, row2), j])
         maxx1 = [-1, 0]
         maxx2 = [-1, 0]
         for cor in pearsonCor:
@@ -85,10 +137,11 @@ def predict_collaborative_filtering(movies, users, ratings, predictions):
         for entry in range(0, len(row)):
             if row[entry] == 0:
                 weightSum = maxx1[0] + maxx2[0]
-                weightedAverage = (maxx1[0] * utilityMatrix[maxx1[1]][entry]
-                + maxx2[0] * utilityMatrix[maxx2[1]][entry]) / weightSum
                 if weightSum == 0: utilityMatrix[i][entry] = 0
-                else: utilityMatrix[i][entry] = weightedAverage
+                else:
+                    weightedAverage = (maxx1[0] * utilityMatrix[maxx1[1]][entry]
+                                       + maxx2[0] * utilityMatrix[maxx2[1]][entry]) / weightSum
+                    utilityMatrix[i][entry] = weightedAverage
     finalPredictions = []
     i = 1
     for row in predictions[['userID', 'movieID']].to_numpy():
@@ -126,7 +179,7 @@ def predict_final(movies, users, ratings, predictions):
 #By default, predicted rate is a random classifier
 def predict_random(movies, users, ratings, predictions):
     number_predictions = len(predictions)
-    predict_collaborative_filtering(movies, users, ratings, predictions)
+    #predict_collaborative_filtering(movies, users, ratings, predictions)
     return [[idx, randint(1, 5)] for idx in range(1, number_predictions + 1)]
 
 #####
