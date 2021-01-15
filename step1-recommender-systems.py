@@ -38,61 +38,32 @@ predictions_description = pd.read_csv(predictions_file, delimiter=';', names=['u
 
 
 def np_pearson_cor(x, y):
-    if x.sum() == 0 or y.sum() == 0: return 0
-    #xv = x - x.mean(axis=0)
-    #yv = y - y.mean(axis=0)
-    #return 0
-    xv = np.copy(x)
-    yv = np.copy(y)
-    xv[xv==0]=np.nan
-    xv[xv!=np.nan]=xv-np.nanmean(xv, axis=0)
-    xv[xv==np.nan]=0
-    xmean = 0
-    ymean = 0
-    length = 0
-    for val in x:
-        if val != 0:
-            xmean += val
-            length += 1
-    if length > 0:
-        xmean = xmean / length
-    else:
-        xmean = 0
-    length = 0
-    for val in y:
-        if val != 0:
-            ymean += val
-            length += 1
-    if length > 0:
-        ymean = ymean / length
-    else:
-        ymean = 0
-    for i in range(0, xv.shape[0]):
-        if xv[i] != 0:
-            xv[i] = xv[i] - xmean
-    for i in range(0, yv.shape[0]):
-        if yv[i] != 0:
-            yv[i] = yv[i] - ymean
-    xvss = (xv * xv).sum(axis=0)
-    yvss = (yv * yv).sum(axis=0)
+    if np.nansum(x, axis=0) == 0 or np.nansum(y, axis=0) == 0: return 0
+    xv = x - np.nanmean(x, axis=0)
+    xv = np.nan_to_num(xv, copy=False)
+    yv = y - np.nanmean(y, axis=0)
+    yv = np.nan_to_num(yv, copy=False)
+    xvss = np.sum((xv * xv), axis=0)
+    yvss = np.sum((yv * yv), axis=0)
     if np.outer(xvss, yvss) != 0:
         result = np.matmul(xv.transpose(), yv) / np.sqrt(np.outer(xvss, yvss))
     else:
         return 0
     # bound the values to -1 to 1 in the event of precision issues
-    return np.minimum(np.abs(result[0][0]), 1.0)
+    return np.maximum(np.minimum(result[0][0], 1.0), -1.0)
 
 
 def predict_collaborative_filtering(movies, users, ratings, predictions):
 
-    utilityMatrix = np.zeros((movies.shape[0]+1, users.shape[0]+1))
-    movieMeanVector = np.zeros(movies['movieID'].shape[0]+1)
+    utilityMatrix = np.empty((users.shape[0]+1, movies.shape[0]+1))
+    utilityMatrix[:] = np.nan
+    # movieMeanVector = np.zeros(movies['movieID'].shape[0]+1)
 
     for row in ratings[['userID', 'movieID', 'rating']].to_numpy():
-        utilityMatrix[row[1]][row[0]] = row[2]
+        utilityMatrix[row[0]][row[1]] = row[2]
 
-    k = 0
     """
+    k = 0
     for row in utilityMatrix:
         s = 0
         length = 0
@@ -104,11 +75,11 @@ def predict_collaborative_filtering(movies, users, ratings, predictions):
     """
     for i in range(0, len(utilityMatrix)):
         row = utilityMatrix[i]
-        if (np.sum(row) == 0): continue
+        if (np.nansum(row) == 0): continue
         pearsonCor = []
         for j in range(i+1, len(utilityMatrix)):
             row2 = utilityMatrix[j]
-            pearson = 0
+            # pearson = 0
             """
             if row2.sum() != 0:
                 xNormalized = row - np.mean(row, axis=0)
@@ -135,7 +106,7 @@ def predict_collaborative_filtering(movies, users, ratings, predictions):
                 maxx2[0] = cor[0]
                 maxx2[1] = cor[1]
         for entry in range(0, len(row)):
-            if row[entry] == 0:
+            if row[entry] == np.nan:
                 weightSum = maxx1[0] + maxx2[0]
                 if weightSum == 0: utilityMatrix[i][entry] = 0
                 else:
@@ -145,7 +116,10 @@ def predict_collaborative_filtering(movies, users, ratings, predictions):
     finalPredictions = []
     i = 1
     for row in predictions[['userID', 'movieID']].to_numpy():
-        finalPredictions.append([i, utilityMatrix[row[1]][row[0]]])
+        if utilityMatrix[row[1]][row[0]] != np.nan:
+            finalPredictions.append([i, utilityMatrix[row[1]][row[0]]])
+        else:
+            finalPredictions.append([i, 0])
         i += 1
     return finalPredictions
 
@@ -156,8 +130,15 @@ def predict_collaborative_filtering(movies, users, ratings, predictions):
 #####
     
 def predict_latent_factors(movies, users, ratings, predictions):
+    """
     ## TO COMPLETE
+    ratingsMatrix = np.empty((users.shape[0] + 1, movies.shape[0] + 1))
+    ratingsMatrix[:] = np.nan
+    # movieMeanVector = np.zeros(movies['movieID'].shape[0]+1)
 
+    for row in ratings[['userID', 'movieID', 'rating']].to_numpy():
+        ratingsMatrix[row[0]][row[1]] = row[2]
+    """
     pass
     
     
