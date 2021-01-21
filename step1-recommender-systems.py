@@ -33,7 +33,7 @@ ratings_description = pd.read_csv(ratings_file, delimiter=';',
                                   dtype={'userID': 'int', 'movieID': 'int', 'rating': 'int'},
                                   names=['userID', 'movieID', 'rating'])
 predictions_description = pd.read_csv(predictions_file, delimiter=';', names=['userID', 'movieID'], header=None)
-corr_description = pd.read_csf(corr_file, delimiter=';', header=None)
+#corr_description = pd.read_csv(corr_file, delimiter=';', header=None)
 
 
 #####
@@ -44,7 +44,10 @@ corr_description = pd.read_csf(corr_file, delimiter=';', header=None)
 
 # for user-user, A should be a vector of all movies for some user
 def cosine_similarity(A, B):
-    return np.dot(A, B) / (np.linalg.norm(A) * np.linalg.norm(B))
+    if np.linalg.norm(A) * np.linalg.norm(B) == 0:
+        return 0
+    else:
+        return np.dot(A, B) / (np.linalg.norm(A) * np.linalg.norm(B))
 
 
 def np_pearson_cor(x, y):
@@ -64,14 +67,14 @@ def np_pearson_cor(x, y):
 
 
 def predict_collaborative_filtering(movies, users, ratings, predictions):
-    ratingsMatrix = np.zeros(users.shape[0] + 1, movies.shape[0] + 1)
-    userMatrix = np.zeros(users.shape[0] + 1, movies.shape[0] + 1)
+    ratingsMatrix = np.zeros((users.shape[0] + 1, movies.shape[0] + 1))
+    #userMatrix = np.zeros(users.shape[0] + 1, movies.shape[0] + 1)
 
     for row in ratings[['userID', 'movieID', 'rating']].to_numpy():
         ratingsMatrix[row[0]][row[1]] = row[2]
-        userMatrix[row[0]][row[1]] = row[2]
+        #userMatrix[row[0]][row[1]] = row[2]
 
-    # generate the rating matrix and user to user matrix once and save them to CSV
+    # Generate the rating matrix and user to user matrix once and save them to CSV
     # So that we can just load it the next time
     # And don't have to do all calculations again for a huge speedup
 
@@ -82,8 +85,10 @@ def predict_collaborative_filtering(movies, users, ratings, predictions):
         pearsonCor = []
         for j in range(i + 1, len(ratingsMatrix)):
             row2 = ratingsMatrix[j]
-            pearsonCor.append([np_pearson_cor(row, row2), j])
-        """
+            if np.sum(row2) == 0:
+                continue
+            pearsonCor.append([cosine_similarity(row, row2), j])
+
         maxx1 = [-1, 0]
         maxx2 = [-1, 0]
         for cor in pearsonCor:
@@ -98,7 +103,7 @@ def predict_collaborative_filtering(movies, users, ratings, predictions):
                 maxx2[0] = cor[0]
                 maxx2[1] = cor[1]
         for entry in range(0, len(row)):
-            if row[entry] == np.nan:
+            if row[entry] == 0:
                 weightSum = maxx1[0] + maxx2[0]
                 if weightSum == 0:
                     ratingsMatrix[i][entry] = 0
@@ -106,12 +111,12 @@ def predict_collaborative_filtering(movies, users, ratings, predictions):
                     weightedAverage = (maxx1[0] * ratingsMatrix[maxx1[1]][entry]
                                        + maxx2[0] * ratingsMatrix[maxx2[1]][entry]) / weightSum
                     ratingsMatrix[i][entry] = weightedAverage
-    """
+
     finalPredictions = []
     i = 1
     for row in predictions[['userID', 'movieID']].to_numpy():
-        if ratingsMatrix[row[1]][row[0]] != np.nan:
-            finalPredictions.append([i, ratingsMatrix[row[1]][row[0]]])
+        if ratingsMatrix[row[0]][row[1]] != 0:
+            finalPredictions.append([i, ratingsMatrix[row[0]][row[1]]])
         else:
             finalPredictions.append([i, 0])
         i += 1
@@ -125,16 +130,55 @@ def predict_collaborative_filtering(movies, users, ratings, predictions):
 #####
 
 def predict_latent_factors(movies, users, ratings, predictions):
-    """
-    ## TO COMPLETE
-    ratingsMatrix = np.empty((users.shape[0] + 1, movies.shape[0] + 1))
-    ratingsMatrix[:] = np.nan
-    # movieMeanVector = np.zeros(movies['movieID'].shape[0]+1)
+    # initialize the ratings matrix with 0 values and make a copy of it
+    ratingsMatrix = np.zeros((users.shape[0] + 1, movies.shape[0] + 1))
+    matrix = np.copy(ratingsMatrix)
 
+    # add ratings to the arrays
     for row in ratings[['userID', 'movieID', 'rating']].to_numpy():
         ratingsMatrix[row[0]][row[1]] = row[2]
-    """
-    pass
+        matrix[row[0]][row[1]] = row[2]
+
+    # compute the mean vector and use it to normalize all rows
+    meanVector = np.zeros(users['userID'].shape[0]+1)
+    i=0
+    for row in ratingsMatrix:
+        s = 0
+        length = 0
+        for rating in row:
+            s += rating
+            if rating > 0: length += 1
+        if length > 0: meanVector[i] = s / length
+        i += 1
+    for i in range(0, ratingsMatrix.shape[0]):
+        for j in range(0, ratingsMatrix.shape[1]):
+            if ratingsMatrix[i][j] != 0:
+                ratingsMatrix[i][j] -= meanVector[i]
+
+    # apply SVD on the ratingsMatrix and then compute Q and P, keeping only 50 factors
+    U, sigma, Vt = np.linalg.svd(ratingsMatrix)
+    Q = U[:, :50]
+    sigma = sigma[:50]
+    P = np.diag(sigma) @ Vt[:50, :]
+
+    # compute the latent factors by using Stochastic Gradient Descent
+    for k in range(0, 10):
+        for x in range(1, ratingsMatrix.shape[0]):
+            for i in range(1, ratingsMatrix.shape[1]):
+                if ratingsMatrix[x][i] != 0:
+                    errorDerivative = 2 * (ratingsMatrix[x][i] - np.dot(Q[x, :], P[:, i]))
+                    Q[x, :] += 0.0001 * (errorDerivative * P[:, i] - 0.6 * Q[x, :])
+                    P[:, i] += 0.0001 * (errorDerivative * Q[x, :] - 0.6 * P[:, i])
+
+    # predict final values for each user and movie
+    finalPredictions = []
+    i = 1
+    for row in predictions[['userID', 'movieID']].to_numpy():
+        finalPredictions.append([i, np.maximum
+            (np.minimum(np.dot(Q[row[0], :], P[:, row[1]]) + meanVector[row[0]], 5), 1)])
+        i += 1
+    return finalPredictions
+
 
 
 #####
@@ -144,7 +188,7 @@ def predict_latent_factors(movies, users, ratings, predictions):
 #####
 
 def predict_final(movies, users, ratings, predictions):
-    return predict_collaborative_filtering(movies, users, ratings, predictions)
+    return predict_latent_factors(movies, users, ratings, predictions)
 
 
 #####
