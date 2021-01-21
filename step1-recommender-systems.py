@@ -130,14 +130,12 @@ def predict_collaborative_filtering(movies, users, ratings, predictions):
 #####
 
 def predict_latent_factors(movies, users, ratings, predictions):
-    # initialize the ratings matrix with 0 values and make a copy of it
+    # initialize the ratings matrix with 0 values
     ratingsMatrix = np.zeros((users.shape[0] + 1, movies.shape[0] + 1))
-    matrix = np.copy(ratingsMatrix)
 
-    # add ratings to the arrays
+    # add ratings to the array
     for row in ratings[['userID', 'movieID', 'rating']].to_numpy():
         ratingsMatrix[row[0]][row[1]] = row[2]
-        matrix[row[0]][row[1]] = row[2]
 
     # compute the mean vector and use it to normalize all rows
     meanVector = np.zeros(users['userID'].shape[0]+1)
