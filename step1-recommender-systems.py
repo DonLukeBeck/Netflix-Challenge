@@ -21,7 +21,7 @@ users_file = './data/users.csv'
 ratings_file = './data/ratings.csv'
 predictions_file = './data/predictions.csv'
 submission_file = './data/submission.csv'
-corr_file = "./data/corr.csv"
+similarities_file = "./data/similarities.csv"
 
 # Read the data using pandas
 movies_description = pd.read_csv(movies_file, delimiter=';', dtype={'movieID': 'int', 'year': 'int', 'movie': 'str'},
@@ -33,7 +33,7 @@ ratings_description = pd.read_csv(ratings_file, delimiter=';',
                                   dtype={'userID': 'int', 'movieID': 'int', 'rating': 'int'},
                                   names=['userID', 'movieID', 'rating'])
 predictions_description = pd.read_csv(predictions_file, delimiter=';', names=['userID', 'movieID'], header=None)
-#corr_description = pd.read_csv(corr_file, delimiter=';', header=None)
+similarities_description = pd.read_csv(similarities_file, delimiter=" ", header=None)
 
 
 #####
@@ -47,80 +47,59 @@ def cosine_similarity(A, B):
     if np.linalg.norm(A) * np.linalg.norm(B) == 0:
         return 0
     else:
-        return np.dot(A, B) / (np.linalg.norm(A) * np.linalg.norm(B))
+        return np.maximum(np.minimum(np.dot(A, B) / (np.linalg.norm(A) * np.linalg.norm(B)), 1), -1)
 
+def save_similarities(users, ratingsMatrix, meanVector):
+    # normalize all rows by their mean value
+    for i in range(0, ratingsMatrix.shape[0]):
+        for j in range(0, ratingsMatrix.shape[1]):
+            if ratingsMatrix[i][j] != 0:
+                ratingsMatrix[i][j] -= meanVector[i]
 
-def np_pearson_cor(x, y):
-    if np.nansum(x, axis=0) == 0 or np.nansum(y, axis=0) == 0: return 0
-    xv = x - np.nanmean(x, axis=0)
-    xv = np.nan_to_num(xv, copy=False)
-    yv = y - np.nanmean(y, axis=0)
-    yv = np.nan_to_num(yv, copy=False)
-    xvss = np.sum((xv * xv), axis=0)
-    yvss = np.sum((yv * yv), axis=0)
-    if np.outer(xvss, yvss) != 0:
-        result = np.matmul(xv.transpose(), yv) / np.sqrt(np.outer(xvss, yvss))
-    else:
-        return 0
-    # bound the values to -1 to 1 in the event of precision issues
-    return np.maximum(np.minimum(result[0][0], 1.0), -1.0)
-
+    # compute similarity matrix and save it to similarities.csv
+    similarityMatrix = np.zeros((users.shape[0] + 1, users.shape[0] + 1))
+    similarityMatrix[0][0] = 1
+    for i in range(1, similarityMatrix.shape[0]):
+        for j in range(1, similarityMatrix.shape[1]):
+            if similarityMatrix[i][j] == 0:
+                if i == j:
+                    similarityMatrix[i][j] = 1
+                else:
+                    similarity = cosine_similarity(ratingsMatrix[i], ratingsMatrix[j])
+                    similarityMatrix[i][j] = similarity
+                    similarityMatrix[j][i] = similarity
+    np.savetxt("./data/similarities.csv", similarityMatrix, delimiter=";")
 
 def predict_collaborative_filtering(movies, users, ratings, predictions):
     ratingsMatrix = np.zeros((users.shape[0] + 1, movies.shape[0] + 1))
-    #userMatrix = np.zeros(users.shape[0] + 1, movies.shape[0] + 1)
-
+    print(movies.shape)
+    print(users.shape)
+    print(ratingsMatrix.shape)
     for row in ratings[['userID', 'movieID', 'rating']].to_numpy():
         ratingsMatrix[row[0]][row[1]] = row[2]
-        #userMatrix[row[0]][row[1]] = row[2]
 
-    # Generate the rating matrix and user to user matrix once and save them to CSV
-    # So that we can just load it the next time
-    # And don't have to do all calculations again for a huge speedup
+    matrixCopy = np.copy(ratingsMatrix)
 
-    for i in range(0, len(ratingsMatrix)):
-        row = ratingsMatrix[i]
-        if np.nansum(row) == 0:
-            continue
-        pearsonCor = []
-        for j in range(i + 1, len(ratingsMatrix)):
-            row2 = ratingsMatrix[j]
-            if np.sum(row2) == 0:
-                continue
-            pearsonCor.append([cosine_similarity(row, row2), j])
-
-        maxx1 = [-1, 0]
-        maxx2 = [-1, 0]
-        for cor in pearsonCor:
-            if maxx1 > maxx2:
-                temp = maxx1
-                maxx1 = maxx2
-                maxx2 = temp
-            if cor[0] > maxx1[0]:
-                maxx1[0] = cor[0]
-                maxx1[1] = cor[1]
-            elif cor[0] > maxx2[0]:
-                maxx2[0] = cor[0]
-                maxx2[1] = cor[1]
-        for entry in range(0, len(row)):
-            if row[entry] == 0:
-                weightSum = maxx1[0] + maxx2[0]
-                if weightSum == 0:
-                    ratingsMatrix[i][entry] = 0
-                else:
-                    weightedAverage = (maxx1[0] * ratingsMatrix[maxx1[1]][entry]
-                                       + maxx2[0] * ratingsMatrix[maxx2[1]][entry]) / weightSum
-                    ratingsMatrix[i][entry] = weightedAverage
-
-    finalPredictions = []
-    i = 1
-    for row in predictions[['userID', 'movieID']].to_numpy():
-        if ratingsMatrix[row[0]][row[1]] != 0:
-            finalPredictions.append([i, ratingsMatrix[row[0]][row[1]]])
-        else:
-            finalPredictions.append([i, 0])
+    # compute the mean vector
+    meanVector = np.zeros(users['userID'].shape[0] + 1)
+    i = 0
+    for row in ratingsMatrix:
+        s = 0
+        length = 0
+        for rating in row:
+            s += rating
+            if rating > 0: length += 1
+        if length > 0: meanVector[i] = s / length
         i += 1
-    return finalPredictions
+    # 6040 users, 3706 movies
+
+    # normalize all rows then compute and save Pearson correlation values in similarities.csv
+
+    # save_similarities(users, ratingsMatrix, meanVector)
+
+    similaritiesSorted = np.argsort(-similarities_description)
+
+    pass
 
 
 #####
@@ -186,7 +165,7 @@ def predict_latent_factors(movies, users, ratings, predictions):
 #####
 
 def predict_final(movies, users, ratings, predictions):
-    return predict_latent_factors(movies, users, ratings, predictions)
+    return predict_collaborative_filtering(movies, users, ratings, predictions)
 
 
 #####
