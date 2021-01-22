@@ -101,7 +101,7 @@ def predict_collaborative_filtering_item_item(movies, users, ratings, prediction
     # normalize all rows then compute and save Pearson correlation values in similarities.csv
     # uncomment to save
 
-    # save_similarities(movies, ratingsMatrix, meanVector)
+    # save_similarities(movies, ratingsMatrix, meanVector, "movieSimilarities")
 
     # initialize predictions array and start indexing from 1 as the first row is full of 0 values
     finalPredictions = []
@@ -192,7 +192,7 @@ def predict_collaborative_filtering_item_item_global(movies, users, ratings, pre
     # 6040 users, 3706 movies
 
     # normalize all rows then compute and save Pearson correlation values in similarities.csv
-    # uncomment to save similarities and baseline matrix
+    # uncomment to save similarities and baseline matrix: also need to uncomment the baseline mean vector
 
     # baselineMeanVector = np.zeros(movies['movieID'].shape[0] + 1)
     # i = 0
