@@ -33,7 +33,7 @@ ratings_description = pd.read_csv(ratings_file, delimiter=';',
                                   dtype={'userID': 'int', 'movieID': 'int', 'rating': 'int'},
                                   names=['userID', 'movieID', 'rating'])
 predictions_description = pd.read_csv(predictions_file, delimiter=';', names=['userID', 'movieID'], header=None)
-similarities_description = pd.read_csv(similarities_file, delimiter=" ", header=None)
+similarities_description = pd.read_csv(similarities_file, delimiter=";", header=None)
 
 
 #####

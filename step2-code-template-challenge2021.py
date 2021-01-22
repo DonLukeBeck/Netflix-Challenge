@@ -268,11 +268,11 @@ def predict_latent_factors_movies(movies, users, ratings, predictions):
             if ratingsMatrix[i][j] != 0:
                 ratingsMatrix[i][j] -= meanVector[i]
 
-    # apply SVD on the ratingsMatrix and then compute Q and P, keeping only 50 factors
+    # apply SVD on the ratingsMatrix and then compute Q and P, keeping only 30 factors
     U, sigma, Vt = np.linalg.svd(ratingsMatrix)
-    Q = U[:, :50]
-    sigma = sigma[:50]
-    P = np.diag(sigma) @ Vt[:50, :]
+    Q = U[:, :30]
+    sigma = sigma[:30]
+    P = np.diag(sigma) @ Vt[:30, :]
 
     # compute the latent factors by using Stochastic Gradient Descent
     for k in range(0, 10):
