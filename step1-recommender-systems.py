@@ -72,12 +72,11 @@ def save_similarities(users, ratingsMatrix, meanVector):
 
 def predict_collaborative_filtering(movies, users, ratings, predictions):
     ratingsMatrix = np.zeros((users.shape[0] + 1, movies.shape[0] + 1))
-    print(movies.shape)
-    print(users.shape)
-    print(ratingsMatrix.shape)
+
     for row in ratings[['userID', 'movieID', 'rating']].to_numpy():
         ratingsMatrix[row[0]][row[1]] = row[2]
 
+    # copy the matrix as we will modify the other one
     matrixCopy = np.copy(ratingsMatrix)
 
     # compute the mean vector
@@ -94,13 +93,50 @@ def predict_collaborative_filtering(movies, users, ratings, predictions):
     # 6040 users, 3706 movies
 
     # normalize all rows then compute and save Pearson correlation values in similarities.csv
+    # uncomment to save
 
     # save_similarities(users, ratingsMatrix, meanVector)
 
-    similaritiesSorted = np.argsort(-similarities_description)
-
-    pass
-
+    # initialize predictions array and start indexing from 1 as the first row is full of 0 values
+    finalPredictions = []
+    i=1
+    for row in predictions[['userID', 'movieID']].to_numpy():
+        # if there is already a value in the matrix, we do not need to predict anything
+        if matrixCopy[row[0]][row[1]] != 0:
+            finalPredictions.append([i, matrixCopy[row[0]][row[1]]])
+            continue
+        # sort the similarities in reverse order and get their indexes (highest similarity is first index)
+        similaritiesSorted = np.argsort(-similarities_description[row[0]])
+        # if the sum of similarities is 0, we check if the user has any ratings and set the prediction
+        # equal to his average rating, otherwise we use 3 as it is the median of 1 and 5
+        if np.sum(similarities_description[row[0]]) == 0:
+            if meanVector[row[0]] != 0:
+                finalPredictions.append([i, meanVector[row[0]]])
+            else:
+                finalPredictions.append([i, 3])
+        # predict the rating based on the k=100 nearest neighbors (most similar users)
+        else:
+            k = 100
+            weightedSum = 0
+            weightSum = 0
+            # iterate over all indexes, stop when we found k neighbors
+            for sIndex in similaritiesSorted:
+                if k == 0:
+                    break
+                # compute the weighted sum of the ratings of the most similar users
+                if matrixCopy[sIndex][row[1]] != 0:
+                    weightedSum += matrixCopy[sIndex][row[1]] \
+                           * similarities_description[row[0]][sIndex]
+                    weightSum += similarities_description[row[0]][sIndex]
+                    k -= 1
+            # if the weighted sum and sum of weights are both non-zero, add the weighted average to the predictions
+            # array and bound the rating between 1 and 5; otherwise, assume user would have rated it 3
+            if weightSum != 0 and weightedSum != 0:
+                finalPredictions.append([i, np.maximum(np.minimum(weightedSum/weightSum, 5), 1)])
+            else:
+                finalPredictions.append([i, 3])
+        i += 1
+    return finalPredictions
 
 #####
 ##
