@@ -114,10 +114,10 @@ def predict_collaborative_filtering_item_item(movies, users, ratings, prediction
             if meanVector[row[1]] != 0:
                 finalPredictions.append([i, meanVector[row[1]]])
             else:
-                finalPredictions.append([i, 3])
+                finalPredictions.append([i, 3.7])
         # predict the rating based on the k=100 nearest neighbors (most similar users)
         else:
-            k = 100
+            k = 15
             weightedSum = 0
             weightSum = 0
             # iterate over all indexes, stop when we found k neighbors
@@ -135,12 +135,60 @@ def predict_collaborative_filtering_item_item(movies, users, ratings, prediction
             if weightSum != 0 and weightedSum != 0:
                 finalPredictions.append([i, np.maximum(np.minimum(weightedSum/weightSum, 5), 1)])
             else:
-                finalPredictions.append([i, 3])
+                finalPredictions.append([i, 3.7])
+        i += 1
+    return finalPredictions
+
+def predict_latent_factors_movies(movies, users, ratings, predictions):
+    # initialize the ratings matrix with 0 values
+    ratingsMatrix = np.zeros((movies.shape[0] + 1, users.shape[0] + 1))
+
+    # add ratings to the array
+    for row in ratings[['userID', 'movieID', 'rating']].to_numpy():
+        ratingsMatrix[row[1]][row[0]] = row[2]
+
+    # compute the mean vector and use it to normalize all rows
+    meanVector = np.zeros(movies['movieID'].shape[0]+1)
+    i=0
+    for row in ratingsMatrix:
+        s = 0
+        length = 0
+        for rating in row:
+            s += rating
+            if rating > 0: length += 1
+        if length > 0: meanVector[i] = s / length
+        i += 1
+    for i in range(0, ratingsMatrix.shape[0]):
+        for j in range(0, ratingsMatrix.shape[1]):
+            if ratingsMatrix[i][j] != 0:
+                ratingsMatrix[i][j] -= meanVector[i]
+
+    # apply SVD on the ratingsMatrix and then compute Q and P, keeping only 50 factors
+    U, sigma, Vt = np.linalg.svd(ratingsMatrix)
+    Q = U[:, :50]
+    sigma = sigma[:50]
+    P = np.diag(sigma) @ Vt[:50, :]
+
+    # compute the latent factors by using Stochastic Gradient Descent
+    for k in range(0, 10):
+        for x in range(1, ratingsMatrix.shape[0]):
+            for i in range(1, ratingsMatrix.shape[1]):
+                if ratingsMatrix[x][i] != 0:
+                    errorDerivative = 2 * (ratingsMatrix[x][i] - np.dot(Q[x, :], P[:, i]))
+                    Q[x, :] += 0.0001 * (errorDerivative * P[:, i] - 0.6 * Q[x, :])
+                    P[:, i] += 0.0001 * (errorDerivative * Q[x, :] - 0.6 * P[:, i])
+
+    # predict final values for each user and movie
+    finalPredictions = []
+    i = 1
+    for row in predictions[['userID', 'movieID']].to_numpy():
+        finalPredictions.append([i, np.maximum
+            (np.minimum(np.dot(Q[row[1], :], P[:, row[0]]) + meanVector[row[1]], 5), 1)])
         i += 1
     return finalPredictions
 
 def predict(movies, users, ratings, predictions):
-    return predict_collaborative_filtering_item_item(movies, users, ratings, predictions)
+    return predict_latent_factors_movies(movies, users, ratings, predictions)
 
 #####
 ##
