@@ -1,6 +1,5 @@
 import numpy as np
 import pandas as pd
-from random import randint
 
 # -*- coding: utf-8 -*-
 """
@@ -49,6 +48,7 @@ def cosine_similarity(A, B):
     else:
         return np.maximum(np.minimum(np.dot(A, B) / (np.linalg.norm(A) * np.linalg.norm(B)), 1), -1)
 
+
 def save_similarities(users, ratingsMatrix, meanVector):
     # normalize all rows by their mean value
     for i in range(0, ratingsMatrix.shape[0]):
@@ -69,6 +69,7 @@ def save_similarities(users, ratingsMatrix, meanVector):
                     similarityMatrix[i][j] = similarity
                     similarityMatrix[j][i] = similarity
     np.savetxt("./data/similarities.csv", similarityMatrix, delimiter=";")
+
 
 def predict_collaborative_filtering(movies, users, ratings, predictions):
     ratingsMatrix = np.zeros((users.shape[0] + 1, movies.shape[0] + 1))
@@ -99,7 +100,7 @@ def predict_collaborative_filtering(movies, users, ratings, predictions):
 
     # initialize predictions array and start indexing from 1 as the first row is full of 0 values
     finalPredictions = []
-    i=1
+    i = 1
     for row in predictions[['userID', 'movieID']].to_numpy():
         # if there is already a value in the matrix, we do not need to predict anything
         if matrixCopy[row[0]][row[1]] != 0:
@@ -126,17 +127,18 @@ def predict_collaborative_filtering(movies, users, ratings, predictions):
                 # compute the weighted sum of the ratings of the most similar users
                 if matrixCopy[sIndex][row[1]] != 0:
                     weightedSum += matrixCopy[sIndex][row[1]] \
-                           * similarities_description[row[0]][sIndex]
+                                   * similarities_description[row[0]][sIndex]
                     weightSum += similarities_description[row[0]][sIndex]
                     k -= 1
             # if the weighted sum and sum of weights are both non-zero, add the weighted average to the predictions
             # array and bound the rating between 1 and 5; otherwise, assume user would have rated it 3
             if weightSum != 0 and weightedSum != 0:
-                finalPredictions.append([i, np.maximum(np.minimum(weightedSum/weightSum, 5), 1)])
+                finalPredictions.append([i, np.maximum(np.minimum(weightedSum / weightSum, 5), 1)])
             else:
                 finalPredictions.append([i, 3])
         i += 1
     return finalPredictions
+
 
 #####
 ##
@@ -153,8 +155,8 @@ def predict_latent_factors(movies, users, ratings, predictions):
         ratingsMatrix[row[0]][row[1]] = row[2]
 
     # compute the mean vector and use it to normalize all rows
-    meanVector = np.zeros(users['userID'].shape[0]+1)
-    i=0
+    meanVector = np.zeros(users['userID'].shape[0] + 1)
+    i = 0
     for row in ratingsMatrix:
         s = 0
         length = 0
@@ -188,10 +190,9 @@ def predict_latent_factors(movies, users, ratings, predictions):
     i = 1
     for row in predictions[['userID', 'movieID']].to_numpy():
         finalPredictions.append([i, np.maximum
-            (np.minimum(np.dot(Q[row[0], :], P[:, row[1]]) + meanVector[row[0]], 5), 1)])
+        (np.minimum(np.dot(Q[row[0], :], P[:, row[1]]) + meanVector[row[0]], 5), 1)])
         i += 1
     return finalPredictions
-
 
 
 #####
@@ -202,19 +203,6 @@ def predict_latent_factors(movies, users, ratings, predictions):
 
 def predict_final(movies, users, ratings, predictions):
     return predict_collaborative_filtering(movies, users, ratings, predictions)
-
-
-#####
-##
-## RANDOM PREDICTORS
-##
-#####
-
-# By default, predicted rate is a random classifier
-def predict_random(movies, users, ratings, predictions):
-    number_predictions = len(predictions)
-    # predict_collaborative_filtering(movies, users, ratings, predictions)
-    return [[idx, randint(1, 5)] for idx in range(1, number_predictions + 1)]
 
 
 #####

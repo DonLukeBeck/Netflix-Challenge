@@ -1,6 +1,5 @@
 import numpy as np
 import pandas as pd
-from random import randint
 
 # -*- coding: utf-8 -*-
 """
@@ -28,7 +27,7 @@ To know more about the expectations, please refer to the guidelines.
 ##
 #####
 
-#Where data is located
+# Where data is located
 movies_file = './data/movies.csv'
 users_file = './data/users.csv'
 ratings_file = './data/ratings.csv'
@@ -46,6 +45,7 @@ predictions_description = pd.read_csv(predictions_file, delimiter=';', names=['u
 similarities_description = pd.read_csv(movie_similarities_file, delimiter=';', header=None)
 baseline_matrix_description = pd.read_csv(baseline_matrix_file, delimiter=';', header=None)
 global_similarities_description = pd.read_csv(global_movie_similarities_file, delimiter=";", header=None)
+
 
 def cosine_similarity(A, B):
     if np.linalg.norm(A) * np.linalg.norm(B) == 0:
@@ -132,13 +132,13 @@ def predict_collaborative_filtering_item_item(movies, users, ratings, prediction
                 # compute the weighted sum of the ratings of the most similar users
                 if matrixCopy[sIndex][row[0]] != 0:
                     weightedSum += matrixCopy[sIndex][row[0]] \
-                           * similarities_description[row[1]][sIndex]
+                                   * similarities_description[row[1]][sIndex]
                     weightSum += similarities_description[row[1]][sIndex]
                     k -= 1
             # if the weighted sum and sum of weights are both non-zero, add the weighted average to the predictions
             # array and bound the rating between 1 and 5; otherwise, assume user would have rated it 3
             if weightSum != 0 and weightedSum != 0:
-                finalPredictions.append([i, np.maximum(np.minimum(weightedSum/weightSum, 5), 1)])
+                finalPredictions.append([i, np.maximum(np.minimum(weightedSum / weightSum, 5), 1)])
             else:
                 finalPredictions.append([i, 3])
         i += 1
@@ -232,17 +232,18 @@ def predict_collaborative_filtering_item_item_global(movies, users, ratings, pre
                 # compute the weighted sum of the ratings of the most similar users
                 if baselineMatrix[sIndex][row[0]] != 0:
                     weightedSum += baselineMatrix[sIndex][row[0]] \
-                           * global_similarities_description[row[1]][sIndex]
+                                   * global_similarities_description[row[1]][sIndex]
                     weightSum += global_similarities_description[row[1]][sIndex]
                     k -= 1
             # if the weighted sum and sum of weights are both non-zero, add the weighted average to the predictions
             # array and bound the rating between 1 and 5; otherwise, assume user gives it the average movie rating
             if weightSum != 0 and weightedSum != 0:
-                finalPredictions.append([i, np.maximum(np.minimum(weightedSum/weightSum, 5), 1)])
+                finalPredictions.append([i, np.maximum(np.minimum(weightedSum / weightSum, 5), 1)])
             else:
                 finalPredictions.append([i, averageMovieRating])
         i += 1
     return finalPredictions
+
 
 def predict_latent_factors_movies(movies, users, ratings, predictions):
     # initialize the ratings matrix with 0 values
@@ -253,8 +254,8 @@ def predict_latent_factors_movies(movies, users, ratings, predictions):
         ratingsMatrix[row[1]][row[0]] = row[2]
 
     # compute the mean vector and use it to normalize all rows
-    meanVector = np.zeros(movies['movieID'].shape[0]+1)
-    i=0
+    meanVector = np.zeros(movies['movieID'].shape[0] + 1)
+    i = 0
     for row in ratingsMatrix:
         s = 0
         length = 0
@@ -288,9 +289,10 @@ def predict_latent_factors_movies(movies, users, ratings, predictions):
     i = 1
     for row in predictions[['userID', 'movieID']].to_numpy():
         finalPredictions.append([i, np.maximum
-            (np.minimum(np.dot(Q[row[1], :], P[:, row[0]]) + meanVector[row[1]], 5), 1)])
+        (np.minimum(np.dot(Q[row[1], :], P[:, row[0]]) + meanVector[row[1]], 5), 1)])
         i += 1
     return finalPredictions
+
 
 def predict_latent_factors_movies_global(movies, users, ratings, predictions):
     # initialize the ratings matrix with 0 values
@@ -301,8 +303,8 @@ def predict_latent_factors_movies_global(movies, users, ratings, predictions):
         ratingsMatrix[row[1]][row[0]] = row[2]
 
     # compute the mean vector and use it to normalize all rows
-    meanVector = np.zeros(movies['movieID'].shape[0]+1)
-    i=0
+    meanVector = np.zeros(movies['movieID'].shape[0] + 1)
+    i = 0
     for row in ratingsMatrix:
         s = 0
         length = 0
@@ -352,12 +354,14 @@ def predict_latent_factors_movies_global(movies, users, ratings, predictions):
     i = 1
     for row in predictions[['userID', 'movieID']].to_numpy():
         finalPredictions.append([i, np.maximum
-            (np.minimum(np.dot(Q[row[1], :], P[:, row[0]]) + meanVector[row[1]], 5), 1)])
+        (np.minimum(np.dot(Q[row[1], :], P[:, row[0]]) + meanVector[row[1]], 5), 1)])
         i += 1
     return finalPredictions
 
+
 def predict(movies, users, ratings, predictions):
     return predict_latent_factors_movies(movies, users, ratings, predictions)
+
 
 #####
 ##
@@ -365,15 +369,14 @@ def predict(movies, users, ratings, predictions):
 ##
 #####    
 
-## //!!\\ TO CHANGE by your prediction function
 predictions = predict(movies_description, users_description, ratings_description, predictions_description)
 
-#Save predictions, should be in the form 'list of tuples' or 'list of lists'
+# Save predictions, should be in the form 'list of tuples' or 'list of lists'
 with open(submission_file, 'w') as submission_writer:
-    #Formats data
+    # Formats data
     predictions = [map(str, row) for row in predictions]
     predictions = [','.join(row) for row in predictions]
-    predictions = 'Id,Rating\n'+'\n'.join(predictions)
-    
-    #Writes it dowmn
+    predictions = 'Id,Rating\n' + '\n'.join(predictions)
+
+    # Writes it down
     submission_writer.write(predictions)
